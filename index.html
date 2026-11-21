@@ -349,11 +349,11 @@ $('ics').addEventListener('click', () => {
 });
 
 /* RSVP: guarda en Google Sheets + envía mensaje cálido por WhatsApp */
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycby8V3NaEW93u6UhuyUa_33hID15nFI4O5Dn20I56RDLCJiuzp4XFUPj3ZG_A0ecS7ZKkw/exec';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycby8V3NaEW93u6UhuyUa_33hID15nFl4O5Dn20l56RDLCJiuzp4XFUPj3ZG_A0ecS7ZKkw/exec';
 const form = $('form');
 if (Date.now() > CIERRE) { form.hidden = true; $('closed').hidden = false; }
 form.addEventListener('change', () => { $('pasesBox').style.display = form.asistencia.value.startsWith('Sí') ? '' : 'none'; });
-form.addEventListener('submit', async e => {
+form.addEventListener('submit', e => {
   e.preventDefault(); $('err').hidden = true;
   if (form.website.value) return;
   const nombre = form.nombre.value.trim();
@@ -364,28 +364,18 @@ form.addEventListener('submit', async e => {
 
   const btn = $('send'); btn.disabled = true; btn.textContent = 'Registrando…';
 
-  // 1. Guarda en Google Sheets (envío compatible sin bloqueo de navegador)
-  const payload = new URLSearchParams({
+  // 1. Guarda en Google Sheets mediante petición directa sin bloqueo
+  const params = new URLSearchParams({
     fecha: new Date().toLocaleString('es-EC'),
     nombre,
     asistencia: form.asistencia.value,
     pases,
     mensaje
   });
+  const beacon = new Image();
+  beacon.src = `${GOOGLE_SHEET_URL}?${params.toString()}`;
 
-  try {
-    await fetch(GOOGLE_SHEET_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-      body: payload.toString()
-    });
-    await new Promise(r => setTimeout(r, 600));
-  } catch (err) {
-    console.warn('Error guardando en Sheets:', err);
-  }
-
-  // 2. Redacta un mensaje cálido y cercano para WhatsApp
+  // 2. Redacta el mensaje cálido para WhatsApp
   const textoPases = pases === '1' ? '1 pase' : `${pases} pases`;
   let texto = '';
   if (asiste) {
@@ -398,7 +388,7 @@ form.addEventListener('submit', async e => {
   }
 
   const urlWhatsApp = `https://wa.me/593984686804?text=${encodeURIComponent(texto)}`;
-  window.open(urlWhatsApp, '_blank');
+  setTimeout(() => { window.open(urlWhatsApp, '_blank'); }, 400);
 
   form.hidden = true; $('ok').hidden = false; $('okname').textContent = nombre.split(' ')[0];
   $('oktxt').textContent = asiste ? 'Tu confirmación quedó guardada y se abrió WhatsApp para enviarla. ¡Nos hace muy felices que nos acompañes!' : 'Tu respuesta quedó registrada y se abrió WhatsApp. Gracias por avisarnos, te llevamos en el corazón.';
