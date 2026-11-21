@@ -347,7 +347,7 @@ $('ics').addEventListener('click', () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], {type:'text/calendar'})); a.download = 'boda-y-bautizo.ics'; a.click();
 });
 
-/* RSVP: guarda en Google Sheets + envía por WhatsApp */
+/* RSVP: guarda en Google Sheets + envía mensaje cálido por WhatsApp */
 const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycby8V3NaEW93u6UhuyUa_33hID15nFI4O5Dn20I56RDLCJiuzp4XFUPj3ZG_A0ecS7ZKkw/exec';
 const form = $('form');
 if (Date.now() > CIERRE) { form.hidden = true; $('closed').hidden = false; }
@@ -361,34 +361,46 @@ form.addEventListener('submit', async e => {
   const pases = asiste ? form.pases.value : '0';
   const mensaje = form.mensaje.value.trim();
 
-  const btn = $('send'); btn.disabled = true; btn.textContent = 'Guardando…';
+  const btn = $('send'); btn.disabled = true; btn.textContent = 'Registrando…';
 
-  // 1. Guarda en tu Hoja de Cálculo de Google
-  const data = new URLSearchParams({
+  // 1. Guarda en Google Sheets (envío compatible sin bloqueo de navegador)
+  const payload = new URLSearchParams({
     fecha: new Date().toLocaleString('es-EC'),
     nombre,
     asistencia: form.asistencia.value,
     pases,
     mensaje
   });
+
   try {
-    await fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: data });
+    await fetch(GOOGLE_SHEET_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: payload.toString()
+    });
+    await new Promise(r => setTimeout(r, 600));
   } catch (err) {
-    console.warn('No se pudo guardar en Sheets, continuando a WhatsApp...');
+    console.warn('Error guardando en Sheets:', err);
   }
 
-  // 2. Abre WhatsApp con el mensaje listo para enviarte
-  let texto = `¡Hola! Confirmo mi respuesta para la boda de Jacqueline y Geovanni y bautizo de Jason:\n\n`;
-  texto += `*Nombre:* ${nombre}\n`;
-  texto += `*Asistencia:* ${form.asistencia.value}\n`;
-  if (asiste) texto += `*Número de pases:* ${pases}\n`;
-  if (mensaje) texto += `*Mensaje:* ${mensaje}`;
+  // 2. Redacta un mensaje cálido y cercano para WhatsApp
+  const textoPases = pases === '1' ? '1 pase' : `${pases} pases`;
+  let texto = '';
+  if (asiste) {
+    texto = `¡Hola Jacqueline y Geovanni! ✨ Qué alegría tan grande compartir este día tan especial con ustedes y celebrar juntos su boda y el bautizo de Jason.\n\nSoy *${nombre}* y confirmo con mucho cariño mi asistencia (${textoPases}).`;
+  } else {
+    texto = `¡Hola Jacqueline y Geovanni! 🤍 Soy *${nombre}*. Aunque en esta ocasión no podré acompañarles personalmente en su boda y el bautizo de Jason, les envío un abrazo enorme y mis mejores deseos en este día tan especial.`;
+  }
+  if (mensaje) {
+    texto += `\n\nLes dedico este mensaje con mucho cariño: _"${mensaje}"_ ✨`;
+  }
 
   const urlWhatsApp = `https://wa.me/593984686804?text=${encodeURIComponent(texto)}`;
   window.open(urlWhatsApp, '_blank');
 
   form.hidden = true; $('ok').hidden = false; $('okname').textContent = nombre.split(' ')[0];
-  $('oktxt').textContent = asiste ? 'Tu confirmación quedó guardada y se abrió WhatsApp para enviarla. ¡Nos hace muy felices que nos acompañes!' : 'Tu respuesta quedó registrada y se abrió WhatsApp. Gracias por avisarnos.';
+  $('oktxt').textContent = asiste ? 'Tu confirmación quedó guardada y se abrió WhatsApp para enviarla. ¡Nos hace muy felices que nos acompañes!' : 'Tu respuesta quedó registrada y se abrió WhatsApp. Gracias por avisarnos, te llevamos en el corazón.';
   $('ok').scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 </script>
