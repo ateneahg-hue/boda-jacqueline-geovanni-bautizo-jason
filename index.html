@@ -347,7 +347,8 @@ $('ics').addEventListener('click', () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], {type:'text/calendar'})); a.download = 'boda-y-bautizo.ics'; a.click();
 });
 
-/* RSVP: cierre automático + envío */
+/* RSVP: guarda en Google Sheets + envía por WhatsApp */
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycby8V3NaEW93u6UhuyUa_33hID15nFI4O5Dn20I56RDLCJiuzp4XFUPj3ZG_A0ecS7ZKkw/exec';
 const form = $('form');
 if (Date.now() > CIERRE) { form.hidden = true; $('closed').hidden = false; }
 form.addEventListener('change', () => { $('pasesBox').style.display = form.asistencia.value.startsWith('Sí') ? '' : 'none'; });
@@ -357,18 +358,38 @@ form.addEventListener('submit', async e => {
   const nombre = form.nombre.value.trim();
   if (!nombre) { $('err').textContent = 'Escribe tu nombre completo para continuar.'; $('err').hidden = false; return; }
   const asiste = form.asistencia.value.startsWith('Sí');
-  const data = new URLSearchParams({ fecha: new Date().toLocaleString('es-EC'), nombre, asistencia: form.asistencia.value, pases: asiste ? form.pases.value : '0', mensaje: form.mensaje.value.trim() });
-  const btn = $('send'); btn.disabled = true; btn.textContent = 'Enviando…';
+  const pases = asiste ? form.pases.value : '0';
+  const mensaje = form.mensaje.value.trim();
+
+  const btn = $('send'); btn.disabled = true; btn.textContent = 'Guardando…';
+
+  // 1. Guarda en tu Hoja de Cálculo de Google
+  const data = new URLSearchParams({
+    fecha: new Date().toLocaleString('es-EC'),
+    nombre,
+    asistencia: form.asistencia.value,
+    pases,
+    mensaje
+  });
   try {
-    if (SCRIPT_URL.startsWith('http')) await fetch(SCRIPT_URL, { method: 'POST', mode: 'no-cors', body: data });
-    else { console.warn('SCRIPT_URL sin configurar: modo demostración, no se guardó nada.'); await new Promise(r => setTimeout(r, 900)); }
-    form.hidden = true; $('ok').hidden = false; $('okname').textContent = nombre.split(' ')[0];
-    $('oktxt').textContent = asiste ? 'Tu confirmación quedó registrada. Nos hace muy felices que nos acompañes.' : 'Gracias por avisarnos. Te llevamos en el corazón ese día.';
-    $('ok').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await fetch(GOOGLE_SHEET_URL, { method: 'POST', mode: 'no-cors', body: data });
   } catch (err) {
-    $('err').textContent = 'No pudimos enviar tu confirmación. Revisa tu conexión e inténtalo de nuevo.'; $('err').hidden = false;
-    btn.disabled = false; btn.textContent = 'Enviar confirmación';
+    console.warn('No se pudo guardar en Sheets, continuando a WhatsApp...');
   }
+
+  // 2. Abre WhatsApp con el mensaje listo para enviarte
+  let texto = `¡Hola! Confirmo mi respuesta para la boda de Jacqueline y Geovanni y bautizo de Jason:\n\n`;
+  texto += `*Nombre:* ${nombre}\n`;
+  texto += `*Asistencia:* ${form.asistencia.value}\n`;
+  if (asiste) texto += `*Número de pases:* ${pases}\n`;
+  if (mensaje) texto += `*Mensaje:* ${mensaje}`;
+
+  const urlWhatsApp = `https://wa.me/593984686804?text=${encodeURIComponent(texto)}`;
+  window.open(urlWhatsApp, '_blank');
+
+  form.hidden = true; $('ok').hidden = false; $('okname').textContent = nombre.split(' ')[0];
+  $('oktxt').textContent = asiste ? 'Tu confirmación quedó guardada y se abrió WhatsApp para enviarla. ¡Nos hace muy felices que nos acompañes!' : 'Tu respuesta quedó registrada y se abrió WhatsApp. Gracias por avisarnos.';
+  $('ok').scrollIntoView({ behavior: 'smooth', block: 'center' });
 });
 </script>
 </body>
